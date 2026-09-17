@@ -2329,7 +2329,7 @@ button
 	             color: #FFF;
 	            margin: clamp(32px, 5vw, 56px) 0 0;
 	           display: inline-block;
-	         font-size: clamp(1.5rem, 5.2vw, 4.6rem);
+	         font-size: clamp(1.2rem, 2.2vw, 3.6rem);
 	         text-wrap: nowrap;
 	        background: -webkit-gradient(linear, left top, left bottom, from(#5FB2FF), to(#5FB2FF)) 0 100% / 0 3px no-repeat; /* FALLBACK */
 	        background: -webkit-gradient(linear, left top, left bottom, from(var(--signal-hi)), to(var(--signal-hi))) 0 100% / 0 3px no-repeat;
