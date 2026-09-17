@@ -1,0 +1,806 @@
+/******************************************************************************\
+# JS - script                                    #       Maximum Tension       #
+################################################################################
+#                                                #      -__            __-     #
+# Teoman Deniz                                   #  :    :!1!-_    _-!1!:    : #
+# maximum-tension.com                            #  ::                      :: #
+#                                                #  :!:    : :: : :  :  ::::!: #
+# +.....................++.....................+ #   :!:: :!:!1:!:!::1:::!!!:  #
+# : C - Maximum Tension :: Create - 2026/09/17 : #   ::!::!!1001010!:!11!!::   #
+# :---------------------::---------------------: #   :!1!!11000000000011!!:    #
+# : License - MIT       :: Update - 2026/09/17 : #    ::::!!!1!!1!!!1!!!::     #
+# +.....................++.....................+ #       ::::!::!:::!::::      #
+\******************************************************************************/
+
+const	body = DOM.GET.ID("body");
+const	header = DOM.GET.ID("header");
+const	nav = DOM.GET.ID("nav");
+const	burger = DOM.GET.ID("burger");
+const	progress_bar = DOM.GET.ID("progress_bar");
+const	language_switch = DOM.GET.ID("language_switch");
+const	scene = DOM.GET.ID("top");
+const	scene_svg = DOM.GET.ID("scene_svg");
+const	machine = DOM.GET.ID("machine");
+const	panels = DOM.GET.ID("panels");
+const	screw_element = DOM.GET.ID("element");
+const	interior_labels = DOM.GET.ID("interior_labels");
+const	element_label = DOM.GET.ID("element_label");
+const	exploded_labels = DOM.GET.ID("exploded_labels");
+const	rotor_housing = DOM.GET.ID("rotor_housing");
+const	discharge_housing = DOM.GET.ID("discharge_housing");
+const	male_rotor = DOM.GET.ID("male_rotor");
+const	female_rotor = DOM.GET.ID("female_rotor");
+const	hero_title = DOM.GET.ID("hero_title");
+const	scene_hint = DOM.GET.ID("scene_hint");
+const	device = DOM.GET.ID("device");
+const	screen_page_name = DOM.GET.ID("screen_page_name");
+const	screen_state = DOM.GET.ID("screen_state");
+const	screen_led = DOM.GET.ID("screen_led");
+const	screen_pressure = DOM.GET.ID("screen_pressure");
+const	screen_temperature = DOM.GET.ID("screen_temperature");
+const	screen_hours = DOM.GET.ID("screen_hours");
+const	screen_spark = DOM.GET.ID("screen_spark");
+const	brands = DOM.GET.ID("markalar");
+const	timeline = DOM.GET.ID("timeline");
+const	year_date = DOM.GET.ID("year_date");
+
+const	svg_namespace = "http://www.w3.org/2000/svg";
+const	mobile_width = 980;
+const	narrow_query = window.matchMedia("(max-width: 820px)");
+const	reduced_motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const	scroll_limit = 10;
+const	header_probe = 36;
+const	load_pressure = 6.8;
+const	unload_pressure = 7.5;
+const	screen_delay = 600;
+const	screen_pages = [412, 413, 414];
+const	step_bounds = [[0, 0.09], [0.09, 0.30], [0.30, 0.50], [0.50, 0.70], [0.70, 0.95]];
+const	bearings_from = [[-195, -26], [100, -26], [-195, 24], [100, 24]];
+const	bearings_to = [[230, 140], [310, 140], [230, 225], [310, 225]];
+const	panel_moves = [
+	{id: "panel_left", start: 0.08, end: 0.22, x: -250, y: 70, angle: -9, center: 415},
+	{id: "panel_middle", start: 0.12, end: 0.26, x: -60, y: 280, angle: 7, center: 560},
+	{id: "panel_right", start: 0.16, end: 0.30, x: 240, y: 60, angle: 10, center: 660}
+];
+const	small_parts = [
+	{id: "element_orings", from: [60, 0], to: [-120, 320]},
+	{id: "element_seal", from: [-200, -26], to: [0, 320]},
+	{id: "element_bolts", from: [150, -50], to: [110, 320]}
+];
+
+var		panel_nodes = [];
+var		part_nodes = [];
+var		bearing_nodes = [];
+var		steps = [];
+var		meter_segments = [];
+var		timeline_steps = [];
+var		screen_views = [];
+var		screen_dots = [];
+var		current_step = -1;
+var		frame_id = 0;
+var		screen_page = 0;
+var		screen_timer = null;
+var		screen_ticks = 0;
+var		pressure = 7.1;
+var		pressure_history = [];
+var		loaded = true;
+var		temperature = 79;
+var		running_hours = 41285;
+
+function
+	to_array(collection)
+{
+	return (Array.prototype.slice.call(collection));
+}
+
+function
+	clamp(value, min, max)
+{
+	if (value < min)
+		return (min);
+
+	if (value > max)
+		return (max);
+
+	return (value);
+}
+
+function
+	lerp(from, to, amount)
+{
+	return (from + (to - from) * amount);
+}
+
+function
+	segment(value, start, end)
+{
+	return (clamp((value - start) / (end - start), 0, 1));
+}
+
+function
+	ease(amount)
+{
+	if (amount < 0.5)
+		return (4 * amount * amount * amount);
+
+	return (1 - Math.pow(-2 * amount + 2, 3) / 2);
+}
+
+function
+	eased_segment(value, start, end)
+{
+	return (ease(segment(value, start, end)));
+}
+
+function
+	round_2(value)
+{
+	return (Math.round(value * 100) / 100);
+}
+
+function
+	set_class(element, classname, state)
+{
+	if (state)
+		DOM.CLASS.ADD(element, classname);
+	else
+		DOM.CLASS.REMOVE(element, classname);
+}
+
+function
+	text_of(key)
+{
+	if (typeof(strings[key]) !== "undefined")
+		return (strings[key]);
+
+	if (typeof(lang_table.tr[key]) !== "undefined")
+		return (lang_table.tr[key]);
+
+	return ("");
+}
+
+function
+	build_language_switch()
+{
+	JS.ITERATE(
+		lang_table,
+		function(table, code)
+		{
+			const	button = DOM.CREATE.ELEMENT("button");
+
+			button.type = "button";
+			button.className = "lang_option";
+			button.textContent = code.toUpperCase();
+			DOM.ATTRIBUTE.SET(button, "data-code", code);
+			button.addEventListener(
+				"click",
+				function()
+				{
+					apply_language(code);
+				}
+			);
+			language_switch.appendChild(button);
+		}
+	);
+}
+
+function
+	apply_language(code)
+{
+	if (!lang_table[code])
+		code = "tr";
+
+	lang = code;
+	strings = lang_table[lang];
+	LOCAL_STORAGE.SET("lang", lang);
+	document.documentElement.lang = lang;
+
+	JS.ITERATE(
+		to_array(DOM.GET.ALL("[data-lang]")),
+		function(element)
+		{
+			element.textContent = text_of(DOM.ATTRIBUTE.GET(element, "data-lang"));
+		}
+	);
+
+	JS.ITERATE(
+		to_array(DOM.GET.ALL("[data-lang-aria]")),
+		function(element)
+		{
+			DOM.ATTRIBUTE.SET(element, "aria-label", text_of(DOM.ATTRIBUTE.GET(element, "data-lang-aria")));
+		}
+	);
+
+	JS.ITERATE(
+		to_array(DOM.GET.CLASS(language_switch, "lang_option")),
+		function(button)
+		{
+			const	active = DOM.ATTRIBUTE.GET(button, "data-code") === lang;
+
+			set_class(button, "active", active);
+			DOM.ATTRIBUTE.SET(button, "aria-pressed", active ? "true" : "false");
+		}
+	);
+
+	render_controller();
+}
+
+function
+	toggle_menu()
+{
+	if (DOM.CLASS.CHECK(body, "menu_open"))
+		close_menu();
+	else
+	{
+		DOM.CLASS.ADD(body, "menu_open");
+		DOM.ATTRIBUTE.SET(burger, "aria-expanded", "true");
+	}
+}
+
+function
+	close_menu()
+{
+	DOM.CLASS.REMOVE(body, "menu_open");
+	DOM.ATTRIBUTE.SET(burger, "aria-expanded", "false");
+}
+
+function
+	is_over_dark()
+{
+	const	zones = to_array(DOM.GET.ALL("[data-theme='dark']"));
+
+	for (let i = 0; i < zones.length; i++)
+	{
+		const	rect = zones[i].getBoundingClientRect();
+
+		if (rect.top <= header_probe && rect.bottom >= header_probe)
+			return (true);
+	}
+
+	return (false);
+}
+
+function
+	render_header()
+{
+	const	scroll_y = window.scrollY || window.pageYOffset || 0;
+	const	scroll_max = document.documentElement.scrollHeight - window.innerHeight;
+
+	set_class(header, "light", !is_over_dark());
+	set_class(header, "scrolled", scroll_y > scroll_limit);
+	progress_bar.style.transform = "scaleX(" + round_2(scroll_max > 0 ? scroll_y / scroll_max : 0) + ")";
+}
+
+function
+	create_svg(name, attributes, parent)
+{
+	const	node = document.createElementNS(svg_namespace, name);
+
+	JS.ITERATE(
+		attributes,
+		function(value, key)
+		{
+			DOM.ATTRIBUTE.SET(node, key, value);
+		}
+	);
+
+	parent.appendChild(node);
+	return (node);
+}
+
+function
+	build_rotors()
+{
+	const	male_lobes = DOM.GET.ID("male_lobes");
+	const	female_lobes = DOM.GET.ID("female_lobes");
+
+	for (let i = -3; i <= 8; i++)
+	{
+		const	x = -185 + i * 44;
+
+		create_svg(
+			"path",
+			{
+				d: (
+					"M" + x + " -50 C" + (x + 14) + " -38 " + (x + 10) + " -14 " + (x + 28) + " -2" +
+					" L" + (x + 42) + " -2 C" + (x + 24) + " -14 " + (x + 28) + " -38 " + (x + 14) + " -50Z"
+				),
+				fill: "#5d6c75"
+			},
+			male_lobes
+		);
+		create_svg(
+			"path",
+			{
+				d: (
+					"M" + (x + 18) + " -50 C" + (x + 30) + " -38 " + (x + 26) + " -14 " + (x + 42) + " -2" +
+					" L" + (x + 47) + " -2 C" + (x + 31) + " -14 " + (x + 35) + " -38 " + (x + 23) + " -50Z"
+				),
+				fill: "#f4f8fa",
+				opacity: "0.85"
+			},
+			male_lobes
+		);
+	}
+
+	for (let i = -3; i <= 10; i++)
+	{
+		const	x = -185 + i * 32;
+
+		create_svg(
+			"path",
+			{
+				d: (
+					"M" + x + " 2 C" + (x - 10) + " 14 " + (x - 6) + " 34 " + (x - 22) + " 46" +
+					" L" + (x - 10) + " 46 C" + (x + 4) + " 34 " + x + " 14 " + (x + 10) + " 2Z"
+				),
+				fill: "#56656e"
+			},
+			female_lobes
+		);
+		create_svg(
+			"path",
+			{
+				d: (
+					"M" + (x + 14) + " 2 C" + (x + 4) + " 14 " + (x + 8) + " 34 " + (x - 6) + " 46" +
+					" L" + (x - 2) + " 46 C" + (x + 12) + " 34 " + (x + 8) + " 14 " + (x + 18) + " 2Z"
+				),
+				fill: "#f4f8fa",
+				opacity: "0.8"
+			},
+			female_lobes
+		);
+	}
+
+	JS.ITERATE(
+		to_array(DOM.GET.CLASS("bearing_balls")),
+		function(balls)
+		{
+			for (let i = 0; i < 10; i++)
+			{
+				const	angle = i / 10 * Math.PI * 2;
+
+				create_svg(
+					"circle",
+					{cx: round_2(Math.cos(angle) * 23), cy: round_2(Math.sin(angle) * 23), r: 3.6, fill: "#dfe6ea"},
+					balls
+				);
+			}
+		}
+	);
+}
+
+function
+	draw_callouts(group, amount)
+{
+	JS.ITERATE(
+		to_array(DOM.GET.CLASS(group, "callout")),
+		function(callout)
+		{
+			const	line = DOM.GET.ELEMENTS(callout, "path")[0];
+			const	dot = DOM.GET.ELEMENTS(callout, "circle")[0];
+			const	text = DOM.GET.ELEMENTS(callout, "text")[0];
+
+			line.style.strokeDashoffset = 1 - segment(amount, 0, 0.6);
+			text.style.opacity = segment(amount, 0.45, 1);
+
+			if (dot)
+				dot.style.opacity = segment(amount, 0, 0.2);
+		}
+	);
+}
+
+function
+	move_panel(node, amount, move)
+{
+	const	lift = eased_segment(amount, 0, 0.35);
+	const	fly = eased_segment(amount, 0.35, 1);
+	const	x = -12 * lift + move.x * fly;
+	const	y = 7 * lift + move.y * fly;
+
+	DOM.ATTRIBUTE.SET(
+		node,
+		"transform",
+		"translate(" + round_2(x) + " " + round_2(y) + ") rotate(" + round_2(move.angle * fly) + " " + move.center + " 395)"
+	);
+	node.style.opacity = 1 - fly;
+}
+
+function
+	place(node, from, to, amount, scale_from, scale_to)
+{
+	const	x = lerp(from[0], to[0], amount);
+	const	y = lerp(from[1], to[1], amount);
+	var		scale = 1;
+
+	if (typeof(scale_from) !== "undefined")
+		scale = lerp(scale_from, scale_to, amount);
+
+	DOM.ATTRIBUTE.SET(
+		node,
+		"transform",
+		"translate(" + round_2(x) + " " + round_2(y) + ")" + (scale !== 1 ? " scale(" + round_2(scale) + ")" : "")
+	);
+}
+
+function
+	set_view_box()
+{
+	DOM.ATTRIBUTE.SET(scene_svg, "viewBox", narrow_query.matches ? "226 90 774 640" : "0 0 1000 760");
+}
+
+function
+	step_of(progress)
+{
+	if (progress < 0.09)
+		return (0);
+
+	if (progress < 0.30)
+		return (1);
+
+	if (progress < 0.50)
+		return (2);
+
+	if (progress < 0.70)
+		return (3);
+
+	return (4);
+}
+
+function
+	render_scene()
+{
+	const	rect = scene.getBoundingClientRect();
+	const	total = scene.offsetHeight - window.innerHeight;
+	const	progress = total > 0 ? clamp(-rect.top / total, 0, 1) : 0;
+	const	extract = eased_segment(progress, 0.50, 0.68);
+	const	explode = segment(progress, 0.70, 0.90);
+	const	step = step_of(progress);
+
+	hero_title.style.fontStretch = round_2(125 - 55 * eased_segment(progress, 0, 0.09)) + "%";
+	scene_hint.style.opacity = 1 - segment(progress, 0.02, 0.08);
+
+	JS.ITERATE(
+		panel_moves,
+		function(move, index)
+		{
+			move_panel(panel_nodes[index], segment(progress, move.start, move.end), move);
+		}
+	);
+
+	set_class(scene, "open", progress > 0.12 && progress < 0.72);
+	draw_callouts(interior_labels, segment(progress, 0.30, 0.38) * (1 - segment(progress, 0.46, 0.50)));
+
+	if (extract > 0 && screw_element.parentNode === machine)
+		scene_svg.insertBefore(screw_element, interior_labels);
+	else if (extract === 0 && screw_element.parentNode !== machine)
+		machine.insertBefore(screw_element, panels);
+
+	DOM.ATTRIBUTE.SET(
+		screw_element,
+		"transform",
+		"translate(" + round_2(lerp(585, 540, extract)) + " " +
+		round_2(lerp(478, 360, extract) - 70 * Math.sin(Math.PI * extract)) + ") " +
+		"scale(" + round_2(lerp(0.27, 0.95, extract)) + ")"
+	);
+	DOM.ATTRIBUTE.SET(
+		machine,
+		"transform",
+		"translate(" + round_2(-150 * extract) + " " + round_2(40 * extract) + ") " +
+		"translate(515 395) scale(" + round_2(1 - 0.18 * extract) + ") translate(-515 -395)"
+	);
+	machine.style.opacity = (1 - 0.82 * extract) * (1 - 0.6 * explode);
+	draw_callouts(element_label, segment(progress, 0.63, 0.68) * (1 - segment(progress, 0.70, 0.73)));
+
+	place(discharge_housing, [0, 0], [210, -95], eased_segment(explode, 0, 0.5));
+	place(rotor_housing, [0, 0], [-60, -110], eased_segment(explode, 0.15, 0.6));
+	place(male_rotor, [0, 0], [-10, 150], eased_segment(explode, 0.3, 0.8));
+	place(female_rotor, [0, 0], [-10, 195], eased_segment(explode, 0.35, 0.85));
+
+	JS.ITERATE(
+		bearing_nodes,
+		function(bearing, index)
+		{
+			const	amount = eased_segment(explode, 0.5 + index * 0.06, 0.82 + index * 0.06);
+
+			place(bearing, bearings_from[index], bearings_to[index], amount, 0.5, 1);
+			DOM.ATTRIBUTE.SET(bearing, "opacity", round_2(segment(amount, 0, 0.15)));
+		}
+	);
+
+	JS.ITERATE(
+		small_parts,
+		function(part, index)
+		{
+			const	amount = eased_segment(explode, 0.6 + index * 0.05, 0.95 + index * 0.02);
+
+			place(part_nodes[index], part.from, part.to, amount, 0.4, 1);
+			DOM.ATTRIBUTE.SET(part_nodes[index], "opacity", round_2(segment(amount, 0, 0.15)));
+		}
+	);
+
+	set_class(scene, "exploded", explode > 0.25);
+	draw_callouts(exploded_labels, segment(progress, 0.88, 0.95));
+
+	if (step !== current_step)
+	{
+		current_step = step;
+
+		JS.ITERATE(
+			steps,
+			function(step_element, index)
+			{
+				set_class(step_element, "active", index === step);
+			}
+		);
+	}
+
+	JS.ITERATE(
+		meter_segments,
+		function(meter, index)
+		{
+			meter.style.transform = "scaleX(" + round_2(segment(progress, step_bounds[index][0], step_bounds[index][1])) + ")";
+		}
+	);
+}
+
+function
+	format_number(value, digits)
+{
+	return (
+		value.toLocaleString(
+			lang,
+			{
+				minimumFractionDigits: digits,
+				maximumFractionDigits: digits
+			}
+		)
+	);
+}
+
+function
+	render_controller()
+{
+	const	points = [];
+
+	JS.ITERATE(
+		pressure_history,
+		function(value, index)
+		{
+			const	x = index / (pressure_history.length - 1) * 300;
+			const	y = 58 - (value - load_pressure) / (unload_pressure - load_pressure) * 46;
+
+			points.push(round_2(x) + "," + round_2(y));
+		}
+	);
+
+	JS.ITERATE(
+		screen_views,
+		function(view, index)
+		{
+			set_class(view, "active", index === screen_page);
+			set_class(screen_dots[index], "on", index === screen_page);
+		}
+	);
+
+	screen_page_name.textContent = text_of(screen_pages[screen_page]);
+	screen_state.textContent = text_of(loaded ? 410 : 411);
+	set_class(screen_led, "idle", !loaded);
+	screen_pressure.textContent = format_number(pressure, 1);
+	screen_temperature.textContent = format_number(temperature, 0);
+	screen_hours.textContent = format_number(running_hours, 0);
+	DOM.ATTRIBUTE.SET(screen_spark, "points", points.join(" "));
+}
+
+function
+	simulate_controller()
+{
+	if (loaded)
+		pressure += 0.05 + Math.random() * 0.03;
+	else
+		pressure -= 0.03 + Math.random() * 0.025;
+
+	if (pressure >= unload_pressure)
+	{
+		pressure = unload_pressure;
+		loaded = false;
+	}
+	else if (pressure <= load_pressure)
+	{
+		pressure = load_pressure;
+		loaded = true;
+	}
+
+	temperature = clamp(temperature + (loaded ? 0.25 : -0.2) + (Math.random() - 0.5) * 0.4, 76, 84);
+	screen_ticks++;
+
+	if (screen_ticks % 6 === 0)
+		running_hours++;
+
+	pressure_history.push(pressure);
+	pressure_history.shift();
+}
+
+function
+	tick_controller()
+{
+	simulate_controller();
+	render_controller();
+}
+
+function
+	turn_screen_page(direction)
+{
+	screen_page = (screen_page + direction + screen_pages.length) % screen_pages.length;
+	render_controller();
+}
+
+function
+	prepare_controller()
+{
+	var		observer;
+
+	screen_views = to_array(DOM.GET.CLASS(device, "screen_view"));
+	screen_dots = to_array(DOM.GET.ALL(device, ".device_dots i"));
+
+	for (let i = 0; i < 40; i++)
+		pressure_history.push(pressure);
+
+	for (let i = 0; i < 80; i++)
+		simulate_controller();
+
+	DOM.GET.ID("key_previous").addEventListener(
+		"click",
+		function()
+		{
+			turn_screen_page(-1);
+		}
+	);
+	DOM.GET.ID("key_next").addEventListener(
+		"click",
+		function()
+		{
+			turn_screen_page(1);
+		}
+	);
+
+	if (!("IntersectionObserver" in window))
+		return ;
+
+	observer = new IntersectionObserver(
+		function(entries)
+		{
+			JS.ITERATE(
+				entries,
+				function(entry)
+				{
+					if (entry.isIntersecting && screen_timer === null)
+						screen_timer = setInterval(tick_controller, screen_delay);
+					else if (!entry.isIntersecting && screen_timer !== null)
+					{
+						clearInterval(screen_timer);
+						screen_timer = null;
+					}
+				}
+			);
+		},
+		{
+			threshold: 0.2
+		}
+	);
+	observer.observe(device);
+}
+
+function
+	prepare_brands()
+{
+	var		observer;
+
+	if (reduced_motion || !("IntersectionObserver" in window))
+		return ;
+
+	observer = new IntersectionObserver(
+		function(entries)
+		{
+			JS.ITERATE(
+				entries,
+				function(entry)
+				{
+					set_class(brands, "playing", entry.isIntersecting);
+				}
+			);
+		}
+	);
+	observer.observe(brands);
+}
+
+function
+	render_timeline()
+{
+	const	line = window.innerHeight * 0.6;
+	const	rect = timeline.getBoundingClientRect();
+
+	timeline.style.setProperty("--fill", round_2(clamp((line - rect.top) / rect.height, 0, 1)));
+
+	JS.ITERATE(
+		timeline_steps,
+		function(item)
+		{
+			set_class(item, "reached", item.getBoundingClientRect().top < line);
+		}
+	);
+}
+
+function
+	render_frame()
+{
+	frame_id = 0;
+	render_header();
+	render_scene();
+	render_timeline();
+}
+
+function
+	request_frame()
+{
+	if (frame_id === 0)
+		frame_id = window.requestAnimationFrame(render_frame);
+}
+
+function
+	on_resize()
+{
+	if (window.innerWidth >= mobile_width)
+		close_menu();
+
+	request_frame();
+}
+
+function
+	main()
+{
+	panel_nodes = panel_moves.map(function(move){return (DOM.GET.ID(move.id));});
+	part_nodes = small_parts.map(function(part){return (DOM.GET.ID(part.id));});
+	bearing_nodes = [DOM.GET.ID("bearing_1"), DOM.GET.ID("bearing_2"), DOM.GET.ID("bearing_3"), DOM.GET.ID("bearing_4")];
+	steps = to_array(DOM.GET.CLASS(scene, "step"));
+	meter_segments = to_array(DOM.GET.ALL(scene, ".scene_segment i"));
+	timeline_steps = to_array(DOM.GET.CLASS(timeline, "timeline_step"));
+
+	build_rotors();
+	build_language_switch();
+	prepare_controller();
+	prepare_brands();
+	set_view_box();
+	apply_language(lang);
+
+	burger.addEventListener("click", toggle_menu);
+
+	JS.ITERATE(
+		to_array(DOM.GET.CLASS(nav, "nav_link")),
+		function(link)
+		{
+			link.addEventListener("click", close_menu);
+		}
+	);
+
+	document.addEventListener(
+		"keydown",
+		function(event)
+		{
+			if (event.key === "Escape")
+				close_menu();
+		}
+	);
+
+	if (narrow_query.addEventListener)
+		narrow_query.addEventListener("change", set_view_box);
+	else if (narrow_query.addListener)
+		narrow_query.addListener(set_view_box);
+
+	window.addEventListener("scroll", request_frame, {passive: true});
+	window.addEventListener("resize", on_resize);
+	year_date.textContent = new Date().getFullYear().toString();
+	render_frame();
+}
+
+DOM.START(main);

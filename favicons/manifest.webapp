@@ -1,0 +1,14 @@
+{
+	"version": "5.5.0",
+	"name": "Güneydoğu Kompresör",
+	"description": "Atlas Copco, Boge ve Kaeser yüksek basınç kompresörleri için vida bloğu revizyonu, arıza onarımı, Elektronikon programlama ve yedek parça. Güneydoğu Kompresör.",
+	"icons": {
+		"60": "firefox_app_60x60.png",
+		"128": "firefox_app_128x128.png",
+		"512": "firefox_app_512x512.png"
+	},
+	"developer": {
+		"name": "Teoman Deniz",
+		"url": "maximum-tension.com"
+	}
+}
