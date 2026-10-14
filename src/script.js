@@ -8,7 +8,7 @@
 # +.....................++.....................+ #   :!:: :!:!1:!:!::1:::!!!:  #
 # : C - Maximum Tension :: Create - 2026/09/17 : #   ::!::!!1001010!:!11!!::   #
 # :---------------------::---------------------: #   :!1!!11000000000011!!:    #
-# : License - MIT       :: Update - 2026/09/17 : #    ::::!!!1!!1!!!1!!!::     #
+# : License - MIT       :: Update - 2026/10/14 : #    ::::!!!1!!1!!!1!!!::     #
 # +.....................++.....................+ #       ::::!::!:::!::::      #
 \******************************************************************************/
 
@@ -459,7 +459,6 @@ function
 
 	hero_title.style.fontStretch = round_2(125 - 55 * eased_segment(progress, 0, 0.09)) + "%";
 	scene_hint.style.opacity = 1 - segment(progress, 0.02, 0.08);
-
 	JS.ITERATE(
 		panel_moves,
 		function(move, index)
@@ -467,7 +466,6 @@ function
 			move_panel(panel_nodes[index], segment(progress, move.start, move.end), move);
 		}
 	);
-
 	set_class(scene, "open", progress > 0.12 && progress < 0.72);
 	draw_callouts(interior_labels, segment(progress, 0.30, 0.38) * (1 - segment(progress, 0.46, 0.50)));
 
@@ -491,12 +489,10 @@ function
 	);
 	machine.style.opacity = (1 - 0.82 * extract) * (1 - 0.6 * explode);
 	draw_callouts(element_label, segment(progress, 0.63, 0.68) * (1 - segment(progress, 0.70, 0.73)));
-
 	place(discharge_housing, [0, 0], [210, -95], eased_segment(explode, 0, 0.5));
 	place(rotor_housing, [0, 0], [-60, -110], eased_segment(explode, 0.15, 0.6));
 	place(male_rotor, [0, 0], [-10, 150], eased_segment(explode, 0.3, 0.8));
 	place(female_rotor, [0, 0], [-10, 195], eased_segment(explode, 0.35, 0.85));
-
 	JS.ITERATE(
 		bearing_nodes,
 		function(bearing, index)
@@ -507,7 +503,6 @@ function
 			DOM.ATTRIBUTE.SET(bearing, "opacity", round_2(segment(amount, 0, 0.15)));
 		}
 	);
-
 	JS.ITERATE(
 		small_parts,
 		function(part, index)
@@ -518,7 +513,6 @@ function
 			DOM.ATTRIBUTE.SET(part_nodes[index], "opacity", round_2(segment(amount, 0, 0.15)));
 		}
 	);
-
 	set_class(scene, "exploded", explode > 0.25);
 	draw_callouts(exploded_labels, segment(progress, 0.88, 0.95));
 
@@ -539,7 +533,11 @@ function
 		meter_segments,
 		function(meter, index)
 		{
-			meter.style.transform = "scaleX(" + round_2(segment(progress, step_bounds[index][0], step_bounds[index][1])) + ")";
+			meter.style.transform = (
+				"scaleX(" +
+				 round_2(segment(progress, step_bounds[index][0], step_bounds[index][1])) +
+				")"
+			);
 		}
 	);
 }
@@ -573,7 +571,6 @@ function
 			points.push(round_2(x) + "," + round_2(y));
 		}
 	);
-
 	JS.ITERATE(
 		screen_views,
 		function(view, index)
@@ -582,7 +579,6 @@ function
 			set_class(screen_dots[index], "on", index === screen_page);
 		}
 	);
-
 	screen_page_name.textContent = text_of(screen_pages[screen_page]);
 	screen_state.textContent = text_of(loaded ? 410 : 411);
 	set_class(screen_led, "idle", !loaded);
@@ -612,10 +608,10 @@ function
 	}
 
 	temperature = clamp(temperature + (loaded ? 0.25 : -0.2) + (Math.random() - 0.5) * 0.4, 76, 84);
-	screen_ticks++;
+	++screen_ticks;
 
 	if (screen_ticks % 6 === 0)
-		running_hours++;
+		++running_hours;
 
 	pressure_history.push(pressure);
 	pressure_history.shift();
@@ -759,22 +755,34 @@ function
 function
 	main()
 {
-	panel_nodes = panel_moves.map(function(move){return (DOM.GET.ID(move.id));});
-	part_nodes = small_parts.map(function(part){return (DOM.GET.ID(part.id));});
-	bearing_nodes = [DOM.GET.ID("bearing_1"), DOM.GET.ID("bearing_2"), DOM.GET.ID("bearing_3"), DOM.GET.ID("bearing_4")];
+	panel_nodes = panel_moves.map(
+		function(move)
+		{
+			return (DOM.GET.ID(move.id));
+		}
+	);
+	part_nodes = small_parts.map(
+		function(part)
+		{
+			return (DOM.GET.ID(part.id));
+		}
+	);
+	bearing_nodes = [
+		DOM.GET.ID("bearing_1"),
+		DOM.GET.ID("bearing_2"),
+		DOM.GET.ID("bearing_3"),
+		DOM.GET.ID("bearing_4")
+	];
 	steps = to_array(DOM.GET.CLASS(scene, "step"));
 	meter_segments = to_array(DOM.GET.ALL(scene, ".scene_segment i"));
 	timeline_steps = to_array(DOM.GET.CLASS(timeline, "timeline_step"));
-
 	build_rotors();
 	build_language_switch();
 	prepare_controller();
 	prepare_brands();
 	set_view_box();
 	apply_language(lang);
-
 	burger.addEventListener("click", toggle_menu);
-
 	JS.ITERATE(
 		to_array(DOM.GET.CLASS(nav, "nav_link")),
 		function(link)
@@ -782,7 +790,6 @@ function
 			link.addEventListener("click", close_menu);
 		}
 	);
-
 	document.addEventListener(
 		"keydown",
 		function(event)
